@@ -1,0 +1,36 @@
+---
+- hosts: guacamoles
+  gather_facts: False
+
+  tasks:
+  - name: "build VPC"
+    import_tasks: build-vpc.yml
+    delegate_to: localhost
+    tags:
+    - vpc
+    run_once: True
+  - name: "build Guacamole VM"
+    import_tasks: guacamole-vm.yml
+    delegate_to: localhost
+    tags:
+    - guacamole-vm
+  - name: "setup guacamole"
+    import_tasks: guacamole.yml
+    tags:
+    - guacamole
+  handlers:
+  - name: restart sshd
+    service:
+      name: sshd
+      state: restarted
+    listen: sshd configuration changed
+
+- hosts: jumpservers
+  gather_facts: False
+  tasks:
+  - name: "build Jump Servers"
+    import_tasks: build-jump-servers.yml
+    delegate_to: localhost
+    tags:
+    - jumpserver
+  

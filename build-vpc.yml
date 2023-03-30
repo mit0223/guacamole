@@ -1,0 +1,64 @@
+---
+- name: Create resource group
+  azure.azcollection.azure_rm_resourcegroup:
+    name: "{{ param_resourcegroup }}"
+    location: "{{ param_location }}"
+  register: param_rg
+
+- name: Create virtual network
+  azure.azcollection.azure_rm_virtualnetwork:
+    resource_group: "{{ param_resourcegroup }}"
+    name: "{{ param_resourcegroup }}Vnet"
+    address_prefixes: "{{ param_vnet_cidr | default('192.168.148.0/23') }}"
+    location: "{{ param_location }}"
+
+- name: Add subnet for JumpServers
+  azure.azcollection.azure_rm_subnet:
+    resource_group: "{{ param_resourcegroup }}"
+    name: "{{ param_resourcegroup }}Subnet"
+    address_prefix: "{{ param_subnet_cidr | default('192.168.148.0/24') }}"
+    virtual_network: "{{ param_resourcegroup }}Vnet"
+
+- name: Create Network Security Group for Jump Servers
+  azure.azcollection.azure_rm_securitygroup:
+    resource_group: "{{ param_resourcegroup }}"
+    name: "{{ param_resourcegroup }}SecurityGroup"
+    rules: []
+      # Guacamole を使用するため、インターネットからのアクセスは許可しない
+    location: "{{ param_location }}"
+
+- name: Add subnet for Guacamole
+  azure.azcollection.azure_rm_subnet:
+    resource_group: "{{ param_resourcegroup }}"
+    name: "GuacamoleSubnet"
+    address_prefix: "{{ param_subnet_cidr | default('192.168.149.0/24') }}"
+    virtual_network: "{{ param_resourcegroup }}Vnet"
+  register: param_subnet_bastion
+
+- name: Create Network Security Group for Guacamole
+  azure.azcollection.azure_rm_securitygroup:
+    resource_group: "{{ param_resourcegroup }}"
+    name: "GuacamoleSecurityGroup"
+    rules:
+      - name: 'allow_ssh'
+        protocol: Tcp
+        destination_port_range: 22
+        access: Allow
+        priority: 1001
+        direction: Inbound
+        source_address_prefix: "{{ param_source_address_prefix | default(omit) }}"
+      - name: 'allow_http'
+        protocol: Tcp
+        destination_port_range: 80
+        access: Allow
+        priority: 1002
+        direction: Inbound
+        source_address_prefix: "{{ param_source_address_prefix | default(omit) }}"
+      - name: 'allow_https'
+        protocol: Tcp
+        destination_port_range: 443
+        access: Allow
+        priority: 1003
+        direction: Inbound
+        source_address_prefix: "{{ param_source_address_prefix | default(omit) }}"
+    location: "{{ param_location }}"

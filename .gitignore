@@ -1,0 +1,12 @@
+*.retry
+*.log
+.hive
+.python-version
+._*
+.dccache
+__pycache__
+.vscode
+.password
+/collections
+ssh_config
+known_hosts

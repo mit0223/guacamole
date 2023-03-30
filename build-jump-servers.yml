@@ -1,0 +1,38 @@
+---
+- name: Create default network inteface card for Junp Servers
+  azure.azcollection.azure_rm_networkinterface:
+    resource_group: "{{ param_resourcegroup }}"
+    name: "{{ inventory_hostname }}-primary"
+    virtual_network: "{{ param_resourcegroup }}Vnet"
+    subnet: "{{ param_resourcegroup }}Subnet"
+    security_group: "{{ param_resourcegroup }}SecurityGroup"
+    ip_configurations:
+    - name: default
+      # public_ip_address_name: "{{ inventory_hostname }}-gip"
+      primary: True
+    location: "{{ param_location }}"
+  register: primary_nic
+  tags:
+  - jumpserver
+
+- name: Create VM
+  azure.azcollection.azure_rm_virtualmachine:
+    resource_group: "{{ param_resourcegroup }}"
+    name: "{{ inventory_hostname }}"
+    vm_size: "{{ instance_type | default(param_default_instance_type) }}"
+    # storage_account_name: "sa{{ param_azure_resourcegroup }}"
+    admin_username: "{{ username | default(param_default_username) }}"
+    admin_password: "{{ password | default(param_default_password) }}"
+    os_type: Windows
+    network_interfaces:
+    - "{{ primary_nic.state.name }}"
+    # managed_disk_type must be specified unless os disk cause error 2020/1/1
+    #     Error creating or updating virtual machine hive0 - Azure Error: BadRequest
+    #     Message: Virtual Machines deployed to an Availability Zone must use managed disks.
+    managed_disk_type: "{{ managed_disk_type | default(param_default_disk_type) }}"
+    os_disk_size_gb: "{{ disk_size | default (omit) }}"
+    image: "{{ vm_image | default(param_default_azure_image) }}"
+    location: "{{ param_location }}"
+  tags:
+  - jumpserver
+  register: jumpserver

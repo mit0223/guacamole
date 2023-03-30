@@ -1,0 +1,71 @@
+---
+- name: Create global ip for Guacamole
+  azure.azcollection.azure_rm_publicipaddress:
+    resource_group: "{{ param_resourcegroup }}"
+    name: "{{ param_resourcegroup }}-guacamole-gip"
+    allocation_method: static
+    sku: standard
+    location: "{{ param_location }}"
+    domain_name: "guacamole-procube"
+  register: guacamole_gip
+
+- name: put ssh_config
+  blockinfile:
+    dest: ./ssh_config
+    marker: "# {mark} ANSIBLE MANAGED BLOCK"
+    state: present
+    create: yes
+    mode: 0644
+    block: |
+      Host guacamole
+        HostName {{ guacamole_gip.state.ip_address }}
+        UserKnownHostsFile known_hosts
+        StrictHostKeyChecking ask
+        User guacamole
+        PasswordAuthentication no
+        IdentitiesOnly yes
+        LogLevel FATAL
+
+- name: Create default network inteface card for Guacamole
+  azure.azcollection.azure_rm_networkinterface:
+    resource_group: "{{ param_resourcegroup }}"
+    name: "guacamole-primary"
+    virtual_network: "{{ param_resourcegroup }}Vnet"
+    subnet: "GuacamoleSubnet"
+    security_group: "GuacamoleSecurityGroup"
+    ip_configurations:
+    - name: default
+      public_ip_address_name: "{{ param_resourcegroup }}-guacamole-gip"
+      primary: True
+    location: "{{ param_location }}"
+  register: guacamole_nic
+
+- name: Create VM
+  azure_rm_virtualmachine:
+    resource_group: "{{ param_resourcegroup }}"
+    name: "{{ inventory_hostname }}"
+    vm_size: "{{ param_default_instance_type }}"
+    admin_username: "{{ hive_safe_admin }}"
+    ssh_password_enabled: false
+    ssh_public_keys:
+      - path: "{{ hive_home_dir }}/.ssh/authorized_keys"
+        key_data: "{{ lookup('file', lookup('env', 'HOME') + '/.ssh/id_rsa.pub' ) }}"
+    network_interfaces:
+    - "{{ guacamole_nic.state.name }}"
+    # managed_disk_type must be specified unless os disk cause error 2020/1/1
+    #     Error creating or updating virtual machine hive0 - Azure Error: BadRequest
+    #     Message: Virtual Machines deployed to an Availability Zone must use managed disks.
+    managed_disk_type: "{{ managed_disk_type | default(param_default_disk_type) }}"
+    # os_disk_size_gb: "{{ disk_size | default (omit) }}"
+    image:
+      offer: RHEL
+      publisher: RedHat
+      sku: '85-gen2'
+      version: latest
+    location: "{{ param_location }}"
+  register: guacamole
+- debug:
+    var: guacamole
+  tags:
+  - debug
+

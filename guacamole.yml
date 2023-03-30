@@ -1,0 +1,121 @@
+---
+- name: prohibit login as root for sshd
+  lineinfile:
+    dest: /etc/ssh/sshd_config
+    regexp: "^PermitRootLogin"
+    insertafter: "^#PermitRootLogin"
+    line: "PermitRootLogin no"
+  notify: sshd configuration changed
+  become: True
+
+- name: Update certificate
+  # avoid Curl error (56): Failure when receiving data from the peer for 
+  #   https://rhui-2.microsoft.com/pulp/repos/content/dist/rhel8/rhui/8/x86_64/baseos/os/repodata/repomd.xml
+  #   [OpenSSL SSL_read: error:14094415:SSL routines:ssl3_read_bytes:sslv3 alert certificate expired, errno 0]
+  dnf:
+    disablerepo: "*"
+    enablerepo: "*microsoft*"
+    name: "rhui-azure-rhel8"
+    state: latest
+  become: True
+
+- name: Install python package
+  yum:
+    state: present
+    name:
+      - python39
+      - python39-libs
+      - python39-devel
+      - python39-pip
+      - python39-setuptools
+      - python3-virtualenv
+  become: True
+
+- name: Build python virtualenv 
+  pip:
+    name:
+      - pip
+    virtualenv: "{{ hive_home_dir }}/docker"
+    virtualenv_python: /usr/bin/python3.9
+    state: latest
+  args:
+    chdir: "{{ hive_home_dir }}"
+
+- name: Install python-dxf & docker
+  pip:
+    name:
+      - python-dxf
+      - docker
+    virtualenv: "{{ hive_home_dir }}/docker"
+  args:
+    chdir: "{{ hive_home_dir }}"
+
+- name: Setup auto enter virtualenv at login
+  lineinfile:
+    path: "{{ hive_home_dir }}/.bashrc"
+    line: ". {{ hive_home_dir }}/docker/bin/activate"
+
+- name: Setup docker ce repository
+  get_url:
+    url: https://download.docker.com/linux/centos/docker-ce.repo
+    dest: /etc/yum.repos.d/
+    owner: root
+    group: root
+    mode: 0644
+  become: True
+
+- name: Install docker package
+  yum:
+    name:
+      - docker-ce
+    state: present
+    exclude: "*.i686"
+  become: True
+
+- name: Add docker group
+  group:
+    name: docker
+    state: present
+  become: True
+
+- name: Allow local connection to administrator
+  user:
+    name: "{{ hive_safe_admin }}"
+    append: True
+    groups: docker
+  become: True
+
+- name: reset ssh connection to make id of ssh persistent session belongs to docker group
+  meta: reset_connection
+  register: meta_reset_connection
+
+- name: Install docker-compose
+  pip:
+    name: docker-compose
+    state: present
+    virtualenv: "{{ hive_home_dir }}/docker"
+
+- name: Copy docker-compose files
+  copy:
+    src: docker-compose
+    dest: "{{ hive_home_dir }}"
+    mode: preserve
+
+- name: Prepare files
+  shell: ./prepare.sh
+  args:
+    chdir: ./docker-compose
+    creates: init
+
+- name: Ensure docker daemon is started
+  systemd:
+    name: docker
+    state: started
+    enabled: True
+  become: True
+
+- name: Compose up guacamole containers
+  docker_compose:
+    project_src: "{{ hive_home_dir }}/docker-compose"
+  vars:
+    ansible_python_interpreter: "{{ hive_home_dir }}/docker/bin/python"
