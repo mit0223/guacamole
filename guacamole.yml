@@ -106,6 +106,7 @@
   args:
     chdir: ./docker-compose
     creates: init
+  become: False
 
 - name: Ensure docker daemon is started
   systemd:
@@ -116,6 +117,7 @@
 
 - name: Compose up guacamole containers
   docker_compose:
+    build: True
     project_src: "{{ hive_home_dir }}/docker-compose"
   vars:
     ansible_python_interpreter: "{{ hive_home_dir }}/docker/bin/python"

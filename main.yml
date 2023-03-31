@@ -24,6 +24,8 @@
       name: sshd
       state: restarted
     listen: sshd configuration changed
+    async: 1
+    poll: 0
 
 - hosts: jumpservers
   gather_facts: False

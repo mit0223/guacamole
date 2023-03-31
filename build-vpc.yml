@@ -53,12 +53,10 @@
         access: Allow
         priority: 1002
         direction: Inbound
-        source_address_prefix: "{{ param_source_address_prefix | default(omit) }}"
       - name: 'allow_https'
         protocol: Tcp
         destination_port_range: 443
         access: Allow
         priority: 1003
         direction: Inbound
-        source_address_prefix: "{{ param_source_address_prefix | default(omit) }}"
     location: "{{ param_location }}"

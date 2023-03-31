@@ -1,6 +1,6 @@
-# win-builder
+# Guacamole デモ環境
 
-Azure 上に Windows マシンを配置するための ansible スクリプトである（プロキューブ社内向け）
+Azure 上に  Guacamole デモ環境を構築するための ansible スクリプトである（プロキューブ社内向け）
 
 ## インストール
 
@@ -90,7 +90,37 @@ hosts に登録されているホストのうち一部（ex. mitsuru-test）の�
 ansible-playbook  main.yml -l mitsuru-test --tags=jumpserver,debug
 ```
 
+## サーバ証明書の取得
+
+以下でサーバ証明書を取得してください。
+
+```
+ssh -F ssh_config guacamole
+cd docker-compose
+docker-compose stop nginx
+mkdir /tmp/{etc,var}-certbot
+docker run -it --rm -p 80:80 -p 443:443 -v /tmp/etc-certbot:/etc/letsencrypt -v /tmp/var-certbot:/var/lib/letsencrypt certbot/certbot certonly --standalone -d guacamole-procube.japaneast.cloudapp.azure.com
+sudo chown guacamole:guacamole -R /tmp/{etc,var}-certbot
+cp /tmp/etc-certbot/archive/guacamole-procube.japaneast.cloudapp.azure.com/fullcain1.pem nginx/ssl/self.cert
+cp /tmp/etc-certbot/archive/guacamole-procube.japaneast.cloudapp.azure.com/privkey1.pem nginx/ssl/self-ssl.key
+docker-compose start nginx
+```
+
 ## アクセス方法
+
+https://guacamole-procube.japaneast.cloudapp.azure.com にアクセスし、ID guacadmin, password guacaadmin でログインし、すぐにパスワードを変更してください。
+
+## 接続設定
+
+### 踏み台サーバ
+
+（未執筆）
+
+### ssh-test
+
+（未執筆）
+
+### ブラウザ
 
 （未執筆）
 
