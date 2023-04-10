@@ -7,8 +7,8 @@ Azure 上に  Guacamole デモ環境を構築するための ansible スクリ�
 python 仮想環境を作成し、以下でツールを導入する。
 
 ```bash
-git clone procube@procube.git.backlog.jp:/INTR/win-builder.git
-cd win-builder
+git clone https://github.com/mit0223/guacamole.git
+cd guacamole
 pip install ansible-core
 ansible-galaxy collection install -r requirements.yml -p collections
 pip install -r collections/ansible_collections/azure/azcollection/requirements-azure.txt

@@ -10,3 +10,5 @@ __pycache__
 /collections
 ssh_config
 known_hosts
+id_rsa
+id_rsa.pub
